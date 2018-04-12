@@ -1,0 +1,433 @@
+---
+title: "Econ 43 Final"
+Date: 12/5/17
+output: html_document
+---
+#Names: Gianluca, Jeffrey, & Jonathan
+
+
+```{r setup, include=FALSE}
+#==============================================================================
+#   Transparent California
+#==============================================================================
+
+# original by Michael Kevane 10/14/2017
+# editied by Gianluca, Jeffrey, & Jonathan
+
+# Description: Create tables of descriptive statistics for 
+# Salary data for public employees in California
+# data is from http://transparentcalifornia.com
+
+#==============================================================================
+#   1. Settings, packages, and options
+#==============================================================================
+
+# Clear the working space
+rm(list = ls())
+
+#install.packages("viridis", "raster", "ggmap", "mapproj", "maps", "maptools", "mapdata", "sp", "ggplot2", "dplyr")
+
+#install.packages(c("maps", "mapdata"))
+#install.packages("dplyr")
+#install.packages("reshape")
+#install.packages("ggrepel")
+#install.packages("noncensus")
+#install.packages("plotly")
+
+
+# Load packages
+library(plyr)
+library(sp) 
+library(raster)
+library(viridis)
+library(leaflet)
+library(doBy)
+library(dplyr)
+library(foreign)
+library(gdata)
+library(ggplot2)
+library(sandwich)
+library(stargazer)
+library(tidyr)
+library(maps)
+library(mapdata)
+library(mapproj)
+library(maptools)
+library(ggmap)
+library(reshape2)
+library(reshape)
+library(ggrepel)
+library(noncensus)
+library(knitr)
+library(plotly)
+
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+```
+
+```{r Data, include=FALSE}
+
+#==============================================================================
+#   2. Data section
+#==============================================================================
+
+### Read data 
+
+# Data input using read.csv
+# Note, albany data available for 2011-2016
+# many other cities, counties, agencies available
+
+# Data input using read.csv
+sonoma_c <- read.csv("http://transparentcalifornia.com/export/sonoma-county-2016.csv")
+napa_c <- read.csv("http://transparentcalifornia.com/export/napa-county-2016.csv")
+solano_c <- read.csv("http://transparentcalifornia.com/export/solano-county-2016.csv")
+marin_c <- read.csv("http://transparentcalifornia.com/export/marin-county-2016.csv")
+contra_costa_c <- read.csv("http://transparentcalifornia.com/export/contra-costa-county-2016.csv")
+san_fran_c <- read.csv("https://transparentcalifornia.com/export/san-francisco-2016.csv")
+san_mateo_c <- read.csv("http://transparentcalifornia.com/export/san-mateo-county-2016.csv")
+santa_cruz_c <- read.csv("http://transparentcalifornia.com/export/santa-cruz-county-2016.csv")
+santa_clara_c <- read.csv("http://transparentcalifornia.com/export/santa-clara-county-2016.csv")
+alameda_c <- read.csv("http://transparentcalifornia.com/export/alameda-county-2016.csv")
+
+merged.data <- rbind(sonoma_c,napa_c,solano_c,marin_c,contra_costa_c,san_fran_c,san_mateo_c,santa_cruz_c,santa_clara_c,alameda_c, all=TRUE)
+
+#Average Sonoma County base pay over $50k
+sonoma_c$basepay = tolower(sonoma_c$Total.Pay...Benefits)
+son50 <- sonoma_c$basepay[sonoma_c$Total.Pay...Benefits > 50000]
+son50 <- as.numeric(son50)
+son50 <- matrix(data = son50, ncol = 1)
+son_avg <- mean(son50)
+num_son <- nrow(son50)
+tot_son <- nrow(sonoma_c)
+
+#Average Napa County base pay over $50k
+napa_c$basepay = tolower(napa_c$Total.Pay...Benefits)
+napa50 <- napa_c$basepay[napa_c$Total.Pay...Benefits >50000]
+napa50 <- as.numeric(napa50)
+napa50 <- matrix(data = napa50, ncol=1)
+napa_avg <- mean(napa50)
+num_napa <- nrow(napa50)
+tot_napa <- nrow(napa_c)
+
+#Average Solano County base pay over $50k
+solano_c$basepay = tolower(solano_c$Total.Pay...Benefits)
+solano50 <- solano_c$basepay[solano_c$Total.Pay...Benefits >50000]
+solano50 <- as.numeric(solano50)
+solano50 <- matrix(data = solano50, ncol = 1)
+solano_avg <- mean(solano50)
+num_solano <- nrow(solano50)
+tot_solano <- nrow(solano_c)
+
+#Average Marin base pay over $50k
+marin_c$basepay = tolower(marin_c$Total.Pay...Benefits)
+marin50 <- marin_c$basepay[marin_c$Total.Pay...Benefits > 50000]
+marin50 <- as.numeric(marin50)
+marin50 <- matrix(data = marin50, ncol = 1)
+marin_avg <- mean(marin50)
+num_marin <- nrow(marin50)
+tot_marin <- nrow(marin_c)
+
+#Average Contra Costa County base pay over $50k
+contra_costa_c$basepay = tolower(contra_costa_c$Total.Pay...Benefits)
+cc50 <- contra_costa_c$basepay[contra_costa_c$Total.Pay...Benefits > 50000]
+cc50 <- as.numeric(cc50)
+cc50 <- matrix(data = cc50, ncol = 1)
+cc_avg <- mean(cc50)
+num_cc <- nrow(cc50)
+tot_cc <- nrow(contra_costa_c)
+
+#Average San Francisco County base pay over $50k
+san_fran_c$basepay = tolower(san_fran_c$Total.Pay...Benefits)
+sf50 <- san_fran_c$basepay[san_fran_c$Total.Pay...Benefits > 50000]
+sf50 <- as.numeric(sf50)
+sf50 <- matrix(data = sf50, ncol = 1)
+sf_avg <- mean(sf50)
+num_sf <- nrow(sf50)
+tot_sf <- nrow(san_fran_c)
+
+#Average San Mateo County base pay over $50k
+san_mateo_c$basepay = tolower(san_mateo_c$Total.Pay...Benefits)
+san_mateo50 <- san_mateo_c$basepay[san_mateo_c$Total.Pay...Benefits > 50000]
+san_mateo50 <- as.numeric(san_mateo50)
+san_mateo50 <- matrix(data = san_mateo50, ncol = 1)
+san_mateo_avg <- mean(san_mateo50)
+num_mateo <- nrow(san_mateo50)
+tot_mateo <- nrow(san_mateo_c)
+
+#Average Santa Cruz County base pay over $50k
+santa_cruz_c$basepay = tolower(santa_cruz_c$Total.Pay...Benefits)
+cruz50 <- santa_cruz_c$basepay[santa_cruz_c$Total.Pay...Benefits > 50000]
+cruz50 <- as.numeric(cruz50)
+cruz50 <- matrix(data = cruz50, ncol = 1)
+cruz_avg <- mean(cruz50)
+num_cruz <- nrow(cruz50)
+tot_cruz <- nrow(santa_cruz_c)
+
+#Average Santa Clara County base pay over $50k
+santa_clara_c$basepay = tolower(santa_clara_c$Total.Pay...Benefits)
+clara50 <- santa_clara_c$basepay[santa_clara_c$Total.Pay...Benefits >50000]
+clara50 <- as.numeric(clara50)
+clara50 <- matrix(data = clara50, ncol = 1)
+clara_avg <- mean(clara50)
+num_clara <- nrow(clara50)
+tot_clara <- nrow(santa_clara_c)
+
+#Average Alameda County base pay over $50k
+alameda_c$basepay = tolower(alameda_c$Total.Pay...Benefits)
+alameda50 <- alameda_c$basepay[alameda_c$Total.Pay...Benefits > 50000]
+alameda50 <- as.numeric(alameda50)
+alameda50 <- matrix(data = alameda50, ncol = 1)
+alameda_avg <- mean(alameda50)
+num_alam <- nrow(alameda50)
+tot_alam <- nrow(alameda_c)
+
+son_avg
+napa_avg
+solano_avg
+marin_avg
+cc_avg
+sf_avg
+san_mateo_avg
+cruz_avg
+clara_avg
+alameda_avg
+
+data(counties)
+counties
+sonoma_pop <-subset(counties, state == "CA" & county_name == "Sonoma County", select = c(county_name, population))
+napa_pop <- subset(counties, state == "CA" & county_name == "Napa County", select = c(county_name, population))
+solano_pop <-subset(counties, state == "CA" & county_name == "Solano County", select = c(county_name, population))
+marin_pop <- subset(counties, state =="CA" & county_name == "Marin County", select = c(county_name, population))
+cc_pop <- subset(counties, state =="CA" & county_name == "Contra Costa County", select = c(county_name, population))
+sf_pop <- subset(counties, state == "CA" & county_name=="San Francisco County", select = c(county_name, population))
+mateo_pop <- subset(counties, state == "CA" & county_name == "San Mateo County", select = c(county_name, population))
+cruz_pop <- subset(counties, state =="CA" & county_name == "Santa Cruz County", select = c(county_name, population))
+clara_pop <- subset(counties, state =="CA" & county_name == "Santa Clara County", select = c(county_name, population))
+alam_pop <- subset(counties, state == "CA" & county_name == "Alameda County", select = c(county_name, population))
+
+```
+
+```{r Manipulates Data, include=FALSE,warning=FALSE, Messege=FALSE, echo=FALSE,comment=NA}
+
+cities <- c("Sonoma","Napa", "Solano", "Marin", "Contra Costa", "San Francisco", "San Mateo", "Santa Cruz","Santa Clara","Alameda")
+geocode(cities)
+
+#Inserts values into separate Data Frames (each data frame is one column)
+city_rats <- c(num_son/tot_son, num_napa/tot_napa, num_solano/tot_solano, num_marin/tot_marin, 
+               num_cc/tot_cc, num_sf/tot_sf, num_mateo/tot_mateo, num_cruz/tot_cruz, 
+               num_clara/tot_clara, num_alam/tot_alam)
+city_rats <- as.data.frame(city_rats)
+city_names <- as.data.frame(cities)
+city_locs <- as.data.frame(geocode(cities))
+
+#Merge data frames horizontally
+all_together <- as.data.frame(c(city_names, city_rats, city_locs))
+
+#Rename the columns
+colnames(all_together) <- c("CityName", "AveragePay", "Longitude", "Latitude")
+all_together <- all_together[, -c(5:7)]
+all_together
+
+```
+
+```{r Maps, echo=FALSE, ,Message= FALSE, warning=FALSE, Messege=FALSE}
+
+#Makes Maps
+myLocation <- "San Francisco"
+
+myMap <- get_map(location=myLocation,
+                 source="google", maptype="roadmap", zoom=9)
+
+RatMap <- ggmap(myMap)+ 
+  geom_point(data = all_together, mapping = aes(x = Longitude, y = Latitude, colour = AveragePay), size = 7) + scale_colour_gradient(low = "#132B43", high = "#FF8C00")  +   labs(x = 'Longitude', y = 'Latitude') +
+  geom_label_repel(data = all_together, aes(x = Longitude, y = Latitude, label = CityName), size=3,
+                   fill = "white", box.padding = unit(.5, "lines"),
+                   label.padding = unit(.2, "lines"),
+                   segment.color = "red", segment.size = 1) 
+
+RatMap +labs(colour = "County Percent")  + guides(size=FALSE) + 
+  ggtitle("Percent of Public Employees with Total Pay above $50K to Total Number of Public Employees") +
+  theme(plot.title = element_text(family = "Times", color="#666666", face="bold", size=9, hjust=0)) +
+  theme(axis.title = element_text(family = "Times", color="#666666", face="bold", size=10)) 
+```
+
+## Reasoning/Analysis
+
+For this data, we wanted to examine what counties in the bay area would be the best place for a new government employee to make a work in. To find this, we first subset the data to be all salaries over $50,000. We did this for two reasons: 1)To eliminate part-time jobs 2) To look for what we thought would be a reasonable minimum living wage in the bay area. 
+
+Afer performing this subset, we examined the percentage of government employees in each of these counties making above that $50,000 mark. This was performed by dividing the number of employees making over #50,000 by total number government employees in the area. Then, as shown by the map, the best places to work happened to be Alameda, Solano and Santa Clara.  
+
+
+```{r 2nd Graph, echo=FALSE, warning=FALSE, Messege=FALSE}
+#Create graph to see how much Benefits/Base Pay contribute to Total Pay (plus benefits) in each county
+ben_son <- mean(sonoma_c$Benefits)
+base_son <-mean(sonoma_c$Base.Pay)
+total_son <- mean(sonoma_c$Total.Pay...Benefits)
+
+ben_napa <- mean(napa_c$Benefits)
+base_napa <- mean(napa_c$Base.Pay)
+total_napa <- mean(napa_c$Total.Pay...Benefits)
+
+ben_sol <- mean(solano_c$Benefits)
+base_sol <- mean(solano_c$Base.Pay)
+total_sol <- mean(solano_c$Total.Pay...Benefits)
+
+ben_marin <- mean(marin_c$Benefits)
+base_marin <- mean(marin_c$Base.Pay)
+total_marin <- mean(marin_c$Total.Pay...Benefits)
+
+ben_cc <- mean(contra_costa_c$Benefits)
+base_cc <- mean(contra_costa_c$Base.Pay)
+total_cc <- mean(contra_costa_c$Total.Pay...Benefits)
+
+ben_sf <- as.numeric(san_fran_c$Benefits)
+ben_sf <- mean(ben_sf)
+base_sf <- as.numeric(san_fran_c$Base.Pay)
+base_sf <- mean(base_sf)
+total_sf <- mean(san_fran_c$Total.Pay...Benefits)
+
+ben_mateo <- mean(san_mateo_c$Benefits)
+base_mateo <- mean(san_mateo_c$Base.Pay)
+total_mateo <- mean(san_mateo_c$Total.Pay...Benefits)
+
+ben_cruz <- mean(santa_cruz_c$Benefits)
+base_cruz <- mean(santa_cruz_c$Base.Pay)
+total_cruz <- mean(santa_cruz_c$Total.Pay...Benefits)
+
+ben_clara <- mean(santa_clara_c$Benefits)
+base_clara <-mean(santa_clara_c$Base.Pay)
+total_clara <- mean(santa_clara_c$Total.Pay...Benefits)
+
+ben_alam <- mean(alameda_c$Benefits)
+base_alam <- mean(alameda_c$Base.Pay)
+total_alam <- mean(alameda_c$Total.Pay...Benefits)
+
+benefit_df <- as.data.frame(c(ben_son, ben_napa, ben_sol, ben_marin, ben_cc, ben_sf, ben_mateo, ben_cruz, ben_clara, ben_alam))
+base_df <- as.data.frame(c(base_son, base_napa, base_sol, base_marin, base_cc, base_sf, base_mateo, base_cruz, base_clara, base_alam))
+total_df <- as.data.frame(c(total_son, total_napa, total_sol, total_marin, total_cc, total_sf, total_mateo, total_cruz, total_clara, total_alam))
+pays_tog <- as.data.frame(c(city_names, base_df, benefit_df, total_df))
+colnames(pays_tog) <- c("County.Name", "Base.Pay", "Benefits", "Total.Pay")
+pays_tog <- pays_tog[, -c(5:7)]
+
+pays_tog <- pays_tog[order(pays_tog$Total.Pay),]
+
+p <- plot_ly(pays_tog, x = ~Benefits, y = ~County.Name, name = "Benefits" , type = 'scatter',
+             mode = "markers", marker = list(color = "green"),
+             hoverinfo = 'text',
+             text = ~paste('Avg. Benefits: $', Benefits)) %>%
+  add_trace(x = ~Base.Pay, y = ~County.Name, name = "Base Pay", type = 'scatter',
+            mode = "markers", marker = list(color = "blue"),
+            hoverinfo = 'text',
+            text = ~paste('Avg. Base Pay: $', Base.Pay)) %>%
+  add_trace(x = ~Total.Pay, y = ~County.Name, name = "Total Pay", type = 'scatter',
+            mode = "markers", marker = list(color = "purple"),
+            hoverinfo = 'text',
+            text = ~paste('Avg. Total Pay: $', Total.Pay)) %>%
+  layout(
+    title = "Benefits, Base Pay, and Total Pay in Bay Area Counties",
+    xaxis = list(title = "Average Pay"),
+    yaxis = list(title = FALSE),
+
+    margin(list(l = 120))
+  )
+
+p
+
+```
+
+## Reasoning/Analysis
+The notion behind this graph was to see if some counties paid their workers in different ways, as opposed to having a relatively equal distribution between benefits, base pay and total pay. San Francisco seemed to be the only unique county that we encountered. While their workers had proportionately far less Base Pay and Benefits, their total pay was still very competitive due to the large amount of overtime pay their workers logged. This would be an interesting avenue to pursue if we were to do future investigation into government jobs and *perhaps* government corruption
+
+```{r 3rd Graph, echo=FALSE, warning=FALSE, Messege=FALSE}
+#Bay Average
+bay_av <- (num_son/tot_son + num_napa/tot_napa + num_solano/tot_solano + num_marin/tot_marin+ 
+                        num_cc/tot_cc +num_sf/tot_sf +num_mateo/tot_mateo +num_cruz/tot_cruz+ 
+                        num_clara/tot_clara + num_alam/tot_alam)/10 
+
+#Physician Average
+tot_phys <- dplyr::filter(merged.data, grepl('Physician', Job.Title))
+tnphys <- nrow(tot_phys)
+phys50 <- tot_phys$Base.Pay[tot_phys$Total.Pay...Benefits > 50000]
+phys50 <- as.numeric(phys50)
+phys50 <- matrix(data = phys50, ncol = 1)
+phys_avg <- mean(phys50)
+num_phys <- nrow(phys50)
+
+#Nurse Average
+tot_nurse <- dplyr::filter(merged.data, grepl('Nurse', Job.Title))
+tnnurse  <- nrow(tot_nurse)
+nurse50 <- tot_nurse$Base.Pay[tot_nurse$Total.Pay...Benefits > 50000]
+nurse50 <- as.numeric(nurse50)
+nurse50 <- matrix(data = nurse50, ncol = 1)
+nurse_avg <- mean(nurse50)
+num_nurse <- nrow(nurse50)
+
+#Accountant
+tot_acc <- dplyr::filter(merged.data, grepl('Account', Job.Title))
+tnacc <- nrow(tot_acc)
+acc50 <- tot_acc$Base.Pay[tot_acc$Total.Pay...Benefits > 50000]
+acc50 <- as.numeric(acc50)
+acc50 <- matrix(data = acc50, ncol = 1)
+acc_avg <- mean(acc50)
+num_acc <- nrow(acc50)
+
+#attorney
+tot_att <- dplyr::filter(merged.data, grepl('Attorney', Job.Title))
+tnatt <- nrow(tot_att)
+att50 <- tot_att$Base.Pay[tot_att$Total.Pay...Benefits > 50000]
+att50 <- as.numeric(att50)
+att50 <- matrix(data = att50, ncol = 1)
+att_avg <- mean(att50)
+num_att <- nrow(att50)
+
+#janitor
+tot_jan <- dplyr::filter(merged.data, grepl('Janitor', Job.Title))
+tnjan <- nrow(tot_jan)
+jan50 <- tot_jan$Base.Pay[tot_jan$Total.Pay...Benefits > 50000]
+jan50 <- as.numeric(jan50)
+jan50 <- matrix(data = jan50, ncol = 1)
+jan_avg <- mean(jan50)
+num_jan <- nrow(jan50)
+
+#secretary
+tot_sec <- dplyr::filter(merged.data, grepl('Secretary', Job.Title))
+tnsec <- nrow(tot_sec)
+sec50 <- tot_sec$Base.Pay[tot_sec$Total.Pay...Benefits > 50000]
+sec50 <- as.numeric(sec50)
+sec50 <- matrix(data = sec50, ncol = 1)
+sec_avg <- mean(sec50)
+num_sec <- nrow(sec50)
+
+#engineer
+tot_eng <- dplyr::filter(merged.data, grepl('Engineer', Job.Title))
+tneng<- nrow(tot_eng)
+eng50 <- tot_eng$Base.Pay[tot_eng$Total.Pay...Benefits > 50000]
+eng50 <- as.numeric(eng50)
+eng50 <- matrix(data = eng50, ncol = 1)
+eng_avg <- mean(eng50)
+num_eng <- nrow(eng50)
+
+#Totals
+emps <- c("Physician", "Nurse","Accountant","Attorney","Janitor","Secretary","Engineer")
+emp_rats <- c(num_phys/tnphys,num_nurse/tnnurse,num_acc/tnacc,num_att/tnatt,num_jan/tnjan,num_sec/tnsec,num_eng/tneng)
+all_emp <- data.frame(Occupations = c(emps), emp_rates = c(emp_rats), bay_rate = c(bay_av))
+
+#Bar Graph
+
+q <- plot_ly(all_emp, x = ~Occupations, y = ~emp_rates, type = 'bar', name = 'Occupation' ) %>%
+  add_trace(y = ~bay_rate, name = 'Bay Area Average') %>%
+  layout(  title = "Occupations Compared to Bay Area Average",
+yaxis = list(range = c(.5, .95),title = 'Percentage Earning Over $50,000'), xaxis = list(title = FALSE), barmode = 'group')
+q
+```
+
+## Reasoning/Analysis
+For our final graph, we wanted to see how various occupations compared to the bay area average in terms of percentage of individuals per county being paid over #$50,000. Some of the results we saw were surprising, such as the occupation of attorney having above %93 making above 50K. Also, seeing that a larger percentage of janitors earning above this threshold when compared to nurses was also surprising. While nurses are caring for people and occasionally saving lives, they still do not on average make more than these janitors. 
+
+
